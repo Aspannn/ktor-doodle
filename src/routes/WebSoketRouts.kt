@@ -21,11 +21,13 @@ import kz.aspan.data.models.ChatMessage
 import kz.aspan.data.models.DrawData
 import kz.aspan.data.models.GameError
 import kz.aspan.data.models.JoinRoomHandShake
+import kz.aspan.data.models.PhaseChange
 import kz.aspan.gson
 import kz.aspan.other.Constants.TYPE_ANNOUNCEMENT
 import kz.aspan.other.Constants.TYPE_CHAT_MESSAGE
 import kz.aspan.other.Constants.TYPE_DRAW_DATA
 import kz.aspan.other.Constants.TYPE_JOIN_ROOM_HANDSHAKE
+import kz.aspan.other.Constants.TYPE_PHASE_CHANGE
 import kz.aspan.server
 import kz.aspan.session.DrawingSession
 
@@ -88,6 +90,7 @@ fun Route.standardWebSocket(
                         TYPE_DRAW_DATA -> DrawData::class.java
                         TYPE_ANNOUNCEMENT -> Announcement::class.java
                         TYPE_JOIN_ROOM_HANDSHAKE -> JoinRoomHandShake::class.java
+                        TYPE_PHASE_CHANGE -> PhaseChange::class.java
                         else -> BaseModel::class.java
                     }
                     val payload = gson.fromJson(message, type)
