@@ -18,6 +18,7 @@ import kz.aspan.data.Room
 import kz.aspan.data.models.Announcement
 import kz.aspan.data.models.BaseModel
 import kz.aspan.data.models.ChatMessage
+import kz.aspan.data.models.ChosenWord
 import kz.aspan.data.models.DrawData
 import kz.aspan.data.models.GameError
 import kz.aspan.data.models.JoinRoomHandShake
@@ -25,6 +26,7 @@ import kz.aspan.data.models.PhaseChange
 import kz.aspan.gson
 import kz.aspan.other.Constants.TYPE_ANNOUNCEMENT
 import kz.aspan.other.Constants.TYPE_CHAT_MESSAGE
+import kz.aspan.other.Constants.TYPE_CHOSEN_WORD
 import kz.aspan.other.Constants.TYPE_DRAW_DATA
 import kz.aspan.other.Constants.TYPE_JOIN_ROOM_HANDSHAKE
 import kz.aspan.other.Constants.TYPE_PHASE_CHANGE
@@ -57,6 +59,10 @@ fun Route.gameWebSocketRoute() {
                     if (room.phase == Room.Phase.GAME_RUNNING) {
                         room.broadcastToAllExcept(message, clientId)
                     }
+                }
+                is ChosenWord -> {
+                    val room = server.rooms[payload.roomName] ?: return@standardWebSocket
+                    room.setWordAndSwitchToGameRunning(payload.chosenWord)
                 }
                 is ChatMessage -> {
 
@@ -91,6 +97,7 @@ fun Route.standardWebSocket(
                         TYPE_ANNOUNCEMENT -> Announcement::class.java
                         TYPE_JOIN_ROOM_HANDSHAKE -> JoinRoomHandShake::class.java
                         TYPE_PHASE_CHANGE -> PhaseChange::class.java
+                        TYPE_CHOSEN_WORD -> ChosenWord::class.java
                         else -> BaseModel::class.java
                     }
                     val payload = gson.fromJson(message, type)

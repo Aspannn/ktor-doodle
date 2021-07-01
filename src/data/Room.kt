@@ -8,6 +8,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kz.aspan.data.models.Announcement
+import kz.aspan.data.models.ChosenWord
 import kz.aspan.data.models.PhaseChange
 import kz.aspan.gson
 
@@ -19,6 +20,8 @@ class Room(
 
     private var timeJog: Job? = null
     private var drawingPlayer: Player? = null
+    private var winningPlayers = listOf<String>()
+    private var word: String? = null
 
     private var phaseChangedListener: ((Phase) -> Unit)? = null
     var phase = Phase.WAITING_FOR_PLAYERS
@@ -118,6 +121,11 @@ class Room(
         return players.find { it.username == username } != null
     }
 
+    fun setWordAndSwitchToGameRunning(word: String) {
+        this.word = word
+        phase = Phase.GAME_RUNNING
+    }
+
     private fun waitingForPlayers() {
         GlobalScope.launch {
             val phaseChange = PhaseChange(
@@ -139,9 +147,9 @@ class Room(
         }
     }
 
+
     private fun newRound() {
-        Phase.GAME_RUNNING
-        Phase.SHOW_WORD
+
     }
 
     private fun gameRunning() {
@@ -149,7 +157,20 @@ class Room(
     }
 
     private fun showWord() {
-
+        GlobalScope.launch {
+            if (winningPlayers.isEmpty()) {
+                drawingPlayer?.let {
+                    it.score -= PENALTY_NOBODY_GUESSED_IT
+                }
+            }
+            word?.let {
+                val chosenWord = ChosenWord(it, name)
+                broadcast(gson.toJson(chosenWord))
+            }
+            timeAndNotify(DELAY_SHOW_WORD_TO_NEW_ROUND)
+            val phaseChange = PhaseChange(Phase.SHOW_WORD, DELAY_SHOW_WORD_TO_NEW_ROUND)
+            broadcast(gson.toJson(phaseChange))
+        }
     }
 
     enum class Phase {
@@ -166,5 +187,6 @@ class Room(
         const val DELAY_NEW_ROUND_TO_GAME_RUNNING = 20000L
         const val DELAY_GAME_RUNNING_TO_SHOW_WORD = 60000L
         const val DELAY_SHOW_WORD_TO_NEW_ROUND = 10000L
+        const val PENALTY_NOBODY_GUESSED_IT = 50
     }
 }
