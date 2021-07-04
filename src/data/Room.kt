@@ -9,8 +9,11 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kz.aspan.data.models.Announcement
 import kz.aspan.data.models.ChosenWord
+import kz.aspan.data.models.GameState
 import kz.aspan.data.models.PhaseChange
 import kz.aspan.gson
+import kz.aspan.other.transformToUnderscores
+import kz.aspan.other.words
 
 class Room(
     val name: String,
@@ -22,6 +25,7 @@ class Room(
     private var drawingPlayer: Player? = null
     private var winningPlayers = listOf<String>()
     private var word: String? = null
+    private var curWords: List<String>? = null
 
     private var phaseChangedListener: ((Phase) -> Unit)? = null
     var phase = Phase.WAITING_FOR_PLAYERS
@@ -153,7 +157,29 @@ class Room(
     }
 
     private fun gameRunning() {
+        winningPlayers = listOf()
+        val wordToSend = word ?: curWords?.random() ?: words.random()
+        val wordWithUnderscores = wordToSend.transformToUnderscores()
+        val drawingUsername = (drawingPlayer ?: players.random()).username
+        val gameStateForDrawingPlayer = GameState(
+            drawingUsername,
+            wordToSend
+        )
+        val gameStateForGuessingPlayers = GameState(
+            drawingUsername,
+            wordWithUnderscores
+        )
 
+        GlobalScope.launch {
+            broadcastToAllExcept(
+                gson.toJson(gameStateForGuessingPlayers),
+                drawingPlayer?.clientId ?: players.random().clientId
+            )
+
+            drawingPlayer?.socket?.send(Frame.Text(gson.toJson(gameStateForDrawingPlayer)))
+            timeAndNotify(DELAY_GAME_RUNNING_TO_SHOW_WORD)
+            println("Drawing phase in room $name started. It'll last ${DELAY_GAME_RUNNING_TO_SHOW_WORD / 1000}s")
+        }
     }
 
     private fun showWord() {
