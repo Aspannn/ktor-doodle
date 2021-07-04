@@ -10,8 +10,10 @@ import kotlinx.coroutines.launch
 import kz.aspan.data.models.Announcement
 import kz.aspan.data.models.ChosenWord
 import kz.aspan.data.models.GameState
+import kz.aspan.data.models.NewWords
 import kz.aspan.data.models.PhaseChange
 import kz.aspan.gson
+import kz.aspan.other.getRandomWords
 import kz.aspan.other.transformToUnderscores
 import kz.aspan.other.words
 
@@ -26,6 +28,7 @@ class Room(
     private var winningPlayers = listOf<String>()
     private var word: String? = null
     private var curWords: List<String>? = null
+    private var drawingPlayerIndex = 0
 
     private var phaseChangedListener: ((Phase) -> Unit)? = null
     var phase = Phase.WAITING_FOR_PLAYERS
@@ -153,7 +156,13 @@ class Room(
 
 
     private fun newRound() {
-
+        curWords = getRandomWords(3)
+        val newWords = NewWords(curWords!!)
+        nextDrawingPlayer()
+        GlobalScope.launch {
+            drawingPlayer?.socket?.send(Frame.Text(gson.toJson(newWords)))
+            timeAndNotify(DELAY_NEW_ROUND_TO_GAME_RUNNING)
+        }
     }
 
     private fun gameRunning() {
@@ -180,6 +189,20 @@ class Room(
             timeAndNotify(DELAY_GAME_RUNNING_TO_SHOW_WORD)
             println("Drawing phase in room $name started. It'll last ${DELAY_GAME_RUNNING_TO_SHOW_WORD / 1000}s")
         }
+    }
+
+    private fun nextDrawingPlayer() {
+        drawingPlayer?.isDrawing = false
+        if (players.isEmpty()) {
+            return
+        }
+
+        drawingPlayer = if (drawingPlayerIndex <= players.size - 1) {
+            players[drawingPlayerIndex]
+        } else players.last()
+
+        if (drawingPlayerIndex < players.size - 1) drawingPlayerIndex++
+        else drawingPlayerIndex = 0
     }
 
     private fun showWord() {
