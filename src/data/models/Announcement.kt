@@ -12,6 +12,5 @@ data class Announcement(
         const val TYPE_PLAYER_JOINED = 1
         const val TYPE_PLAYER_LEFT = 2
         const val TYPE_EVERYBODY_GUESSED_IT = 3
-
     }
 }
