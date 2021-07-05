@@ -55,16 +55,38 @@ class Room(
         phaseChangedListener = listener
     }
 
-    suspend fun addPlayer(clientId: String, username: String, socked: WebSocketSession): Player {
-        val player = Player(username, socked, clientId)
-        players = players + player
+    suspend fun addPlayer(clientId: String, username: String, socket: WebSocketSession): Player {
+        var indexToAdd = players.size - 1
+        val player = if(leftPlayers.containsKey(clientId)) {
+            val leftPlayer = leftPlayers[clientId]
+            leftPlayer?.first?.let {
+                it.socket = socket
+                it.isDrawing = drawingPlayer?.clientId == clientId
+                indexToAdd = leftPlayer.second
 
-        if (players.size == 1) {
+                playerRemoveJobs[clientId]?.cancel()
+                playerRemoveJobs.remove(clientId)
+                leftPlayers.remove(clientId)
+                it
+            } ?: Player(username, socket, clientId)
+        } else {
+            Player(username, socket, clientId)
+        }
+        indexToAdd = when {
+            players.isEmpty() -> 0
+            indexToAdd >= players.size -> players.size - 1
+            else -> indexToAdd
+        }
+        val tmpPlayers = players.toMutableList()
+        tmpPlayers.add(indexToAdd, player)
+        players = tmpPlayers.toList()
+
+        if(players.size == 1) {
             phase = Phase.WAITING_FOR_PLAYERS
-        } else if (players.size == 2 && phase == Phase.WAITING_FOR_PLAYERS) {
+        } else if(players.size == 2 && phase == Phase.WAITING_FOR_PLAYERS) {
             phase = Phase.WAITING_FOR_START
             players = players.shuffled()
-        } else if (phase == Phase.WAITING_FOR_START && players.size == maxPlayers) {
+        } else if(phase == Phase.WAITING_FOR_START && players.size == maxPlayers) {
             phase = Phase.NEW_ROUND
             players = players.shuffled()
         }
@@ -77,6 +99,7 @@ class Room(
         sendWordToPlayer(player)
         broadcastPlayerStates()
         broadcast(gson.toJson(announcement))
+
         return player
     }
 

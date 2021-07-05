@@ -24,6 +24,7 @@ import kz.aspan.data.models.GameError
 import kz.aspan.data.models.GameState
 import kz.aspan.data.models.JoinRoomHandShake
 import kz.aspan.data.models.PhaseChange
+import kz.aspan.data.models.Ping
 import kz.aspan.gson
 import kz.aspan.other.Constants.TYPE_ANNOUNCEMENT
 import kz.aspan.other.Constants.TYPE_CHAT_MESSAGE
@@ -32,6 +33,7 @@ import kz.aspan.other.Constants.TYPE_DRAW_DATA
 import kz.aspan.other.Constants.TYPE_GAME_STATE
 import kz.aspan.other.Constants.TYPE_JOIN_ROOM_HANDSHAKE
 import kz.aspan.other.Constants.TYPE_PHASE_CHANGE
+import kz.aspan.other.Constants.TYPE_PING
 import kz.aspan.server
 import kz.aspan.session.DrawingSession
 
@@ -54,6 +56,10 @@ fun Route.gameWebSocketRoute() {
                     server.playerJoined(player)
                     if (!room.containsPlayer(player.username)) {
                         room.addPlayer(player.clientId, player.username, socket)
+                    } else {
+                        val playerInRoom = room.players.find { it.clientId == clientId }
+                        playerInRoom?.socket = socket
+                        playerInRoom?.startPinging()
                     }
                 }
                 is DrawData -> {
@@ -71,6 +77,9 @@ fun Route.gameWebSocketRoute() {
                     if (!room.chekWordAndNotifyPlayers(payload)) {
                         room.broadcast(message)
                     }
+                }
+                is Ping -> {
+                    server.players[clientId]?.receivedPong()
                 }
             }
         }
@@ -104,6 +113,7 @@ fun Route.standardWebSocket(
                         TYPE_PHASE_CHANGE -> PhaseChange::class.java
                         TYPE_CHOSEN_WORD -> ChosenWord::class.java
                         TYPE_GAME_STATE -> GameState::class.java
+                        TYPE_PING -> Ping::class.java
                         else -> BaseModel::class.java
                     }
                     val payload = gson.fromJson(message, type)
