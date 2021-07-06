@@ -16,6 +16,7 @@ import kz.aspan.data.models.NewWords
 import kz.aspan.data.models.PhaseChange
 import kz.aspan.data.models.PlayerData
 import kz.aspan.data.models.PlayersList
+import kz.aspan.data.models.RoundDrawInfo
 import kz.aspan.gson
 import kz.aspan.other.getRandomWords
 import kz.aspan.other.matchesWord
@@ -39,6 +40,7 @@ class Room(
 
     private val playerRemoveJobs = ConcurrentHashMap<String, Job>()
     private val leftPlayers = ConcurrentHashMap<String, Pair<Player, Int>>()
+    private var curRoundDrawData: List<String> = listOf()
 
     private var phaseChangedListener: ((Phase) -> Unit)? = null
     var phase = Phase.WAITING_FOR_PLAYERS
@@ -51,13 +53,23 @@ class Room(
             }
         }
 
+    private suspend fun sendCurRoundDrawInfoPlayer(player: Player) {
+        if (phase == Phase.GAME_RUNNING || phase == Phase.SHOW_WORD) {
+            player.socket.send(Frame.Text(gson.toJson(RoundDrawInfo(curRoundDrawData))))
+        }
+    }
+
+    fun addSerializedDrawInfo(drawAction: String) {
+        curRoundDrawData = curRoundDrawData + drawAction
+    }
+
     private fun setPhaseChangeListener(listener: (Phase) -> Unit) {
         phaseChangedListener = listener
     }
 
     suspend fun addPlayer(clientId: String, username: String, socket: WebSocketSession): Player {
         var indexToAdd = players.size - 1
-        val player = if(leftPlayers.containsKey(clientId)) {
+        val player = if (leftPlayers.containsKey(clientId)) {
             val leftPlayer = leftPlayers[clientId]
             leftPlayer?.first?.let {
                 it.socket = socket
@@ -81,12 +93,12 @@ class Room(
         tmpPlayers.add(indexToAdd, player)
         players = tmpPlayers.toList()
 
-        if(players.size == 1) {
+        if (players.size == 1) {
             phase = Phase.WAITING_FOR_PLAYERS
-        } else if(players.size == 2 && phase == Phase.WAITING_FOR_PLAYERS) {
+        } else if (players.size == 2 && phase == Phase.WAITING_FOR_PLAYERS) {
             phase = Phase.WAITING_FOR_START
             players = players.shuffled()
-        } else if(phase == Phase.WAITING_FOR_START && players.size == maxPlayers) {
+        } else if (phase == Phase.WAITING_FOR_START && players.size == maxPlayers) {
             phase = Phase.NEW_ROUND
             players = players.shuffled()
         }
@@ -98,6 +110,7 @@ class Room(
         )
         sendWordToPlayer(player)
         broadcastPlayerStates()
+        sendCurRoundDrawInfoPlayer(player)
         broadcast(gson.toJson(announcement))
 
         return player
@@ -232,6 +245,7 @@ class Room(
 
 
     private fun newRound() {
+        curRoundDrawData = listOf()
         curWords = getRandomWords(3)
         val newWords = NewWords(curWords!!)
         nextDrawingPlayer()
