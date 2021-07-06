@@ -11,6 +11,7 @@ import kotlinx.coroutines.launch
 import kz.aspan.data.models.Announcement
 import kz.aspan.data.models.ChatMessage
 import kz.aspan.data.models.ChosenWord
+import kz.aspan.data.models.DrawData
 import kz.aspan.data.models.GameState
 import kz.aspan.data.models.NewWords
 import kz.aspan.data.models.PhaseChange
@@ -40,7 +41,9 @@ class Room(
 
     private val playerRemoveJobs = ConcurrentHashMap<String, Job>()
     private val leftPlayers = ConcurrentHashMap<String, Pair<Player, Int>>()
+
     private var curRoundDrawData: List<String> = listOf()
+    var lastDrawData: DrawData? = null
 
     private var phaseChangedListener: ((Phase) -> Unit)? = null
     var phase = Phase.WAITING_FOR_PLAYERS
@@ -65,6 +68,15 @@ class Room(
 
     private fun setPhaseChangeListener(listener: (Phase) -> Unit) {
         phaseChangedListener = listener
+    }
+
+    private suspend fun finishOffDrawing() {
+        lastDrawData?.let {
+            if (curRoundDrawData.isNotEmpty() && it.motionEvent == 2) {
+                val finishDrawData = it.copy(motionEvent = 1)
+                broadcast(gson.toJson(finishDrawData))
+            }
+        }
     }
 
     suspend fun addPlayer(clientId: String, username: String, socket: WebSocketSession): Player {
@@ -170,9 +182,15 @@ class Room(
 
             phase = when (phase) {
                 Phase.WAITING_FOR_START -> Phase.NEW_ROUND
-                Phase.GAME_RUNNING -> Phase.SHOW_WORD
+                Phase.GAME_RUNNING -> {
+                    finishOffDrawing()
+                    Phase.SHOW_WORD
+                }
                 Phase.SHOW_WORD -> Phase.NEW_ROUND
-                Phase.NEW_ROUND -> Phase.GAME_RUNNING
+                Phase.NEW_ROUND -> {
+                    word = null
+                    Phase.GAME_RUNNING
+                }
                 else -> Phase.WAITING_FOR_PLAYERS
             }
         }
@@ -259,6 +277,7 @@ class Room(
     private fun gameRunning() {
         winningPlayers = listOf()
         val wordToSend = word ?: curWords?.random() ?: words.random()
+        word = wordToSend
         val wordWithUnderscores = wordToSend.transformToUnderscores()
         val drawingUsername = (drawingPlayer ?: players.random()).username
         val gameStateForDrawingPlayer = GameState(
@@ -378,6 +397,8 @@ class Room(
 
         if (drawingPlayerIndex < players.size - 1) drawingPlayerIndex++
         else drawingPlayerIndex = 0
+
+        drawingPlayer?.isDrawing = true
     }
 
     private fun showWord() {

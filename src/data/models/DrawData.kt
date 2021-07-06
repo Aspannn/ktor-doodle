@@ -9,5 +9,6 @@ data class DrawData(
     val fromX: Float,
     val fromY: Float,
     val toX: Float,
-    val toY: Float
+    val toY: Float,
+    val motionEvent: Int
 ) : BaseModel(TYPE_DRAW_DATA)
