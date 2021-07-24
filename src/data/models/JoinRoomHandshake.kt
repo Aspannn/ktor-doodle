@@ -2,7 +2,7 @@ package kz.aspan.data.models
 
 import kz.aspan.other.Constants.TYPE_JOIN_ROOM_HANDSHAKE
 
-data class JoinRoomHandShake(
+data class JoinRoomHandshake(
     val username: String,
     val roomName: String,
     val clientId: String

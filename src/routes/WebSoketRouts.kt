@@ -24,7 +24,7 @@ import kz.aspan.data.models.DrawAction
 import kz.aspan.data.models.DrawData
 import kz.aspan.data.models.GameError
 import kz.aspan.data.models.GameState
-import kz.aspan.data.models.JoinRoomHandShake
+import kz.aspan.data.models.JoinRoomHandshake
 import kz.aspan.data.models.PhaseChange
 import kz.aspan.data.models.Ping
 import kz.aspan.gson
@@ -45,7 +45,7 @@ fun Route.gameWebSocketRoute() {
     route("/ws/draw") {
         standardWebSocket { socket, clientId, message, payload ->
             when (payload) {
-                is JoinRoomHandShake -> {
+                is JoinRoomHandshake -> {
                     val room = server.rooms[payload.roomName]
                     if (room == null) {
                         val gameError = GameError(GameError.ERROR_ROOM_NOT_FOUND)
@@ -58,7 +58,7 @@ fun Route.gameWebSocketRoute() {
                         payload.clientId
                     )
                     server.playerJoined(player)
-                    if (!room.containsPlayer(player.username)) {
+                    if(!room.containsPlayer(player.username)) {
                         room.addPlayer(player.clientId, player.username, socket)
                     } else {
                         val playerInRoom = room.players.find { it.clientId == clientId }
@@ -68,7 +68,8 @@ fun Route.gameWebSocketRoute() {
                 }
                 is DrawData -> {
                     val room = server.rooms[payload.roomName] ?: return@standardWebSocket
-                    if (room.phase == Room.Phase.GAME_RUNNING) {
+                    //ffff
+                    if (room.phase != Room.Phase.GAME_RUNNING) {
                         room.broadcastToAllExcept(message, clientId)
                         room.addSerializedDrawInfo(message)
                     }
@@ -85,7 +86,7 @@ fun Route.gameWebSocketRoute() {
                 }
                 is ChatMessage -> {
                     val room = server.rooms[payload.roomName] ?: return@standardWebSocket
-                    if (!room.chekWordAndNotifyPlayers(payload)) {
+                    if(!room.checkWordAndNotifyPlayers(payload)) {
                         room.broadcast(message)
                     }
                 }
@@ -111,7 +112,7 @@ fun Route.standardWebSocket(
     webSocket {
         val session = call.sessions.get<DrawingSession>()
         if (session == null) {
-            close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "No session"))
+            close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "No session."))
             return@webSocket
         }
         try {
@@ -123,7 +124,7 @@ fun Route.standardWebSocket(
                         TYPE_CHAT_MESSAGE -> ChatMessage::class.java
                         TYPE_DRAW_DATA -> DrawData::class.java
                         TYPE_ANNOUNCEMENT -> Announcement::class.java
-                        TYPE_JOIN_ROOM_HANDSHAKE -> JoinRoomHandShake::class.java
+                        TYPE_JOIN_ROOM_HANDSHAKE -> JoinRoomHandshake::class.java
                         TYPE_PHASE_CHANGE -> PhaseChange::class.java
                         TYPE_CHOSEN_WORD -> ChosenWord::class.java
                         TYPE_GAME_STATE -> GameState::class.java
@@ -143,7 +144,7 @@ fun Route.standardWebSocket(
             val playerWithClientId = server.getRoomWithClientId(session.clientId)?.players?.find {
                 it.clientId == session.clientId
             }
-            if (playerWithClientId != null) {
+            if(playerWithClientId != null) {
                 server.playerLeft(session.clientId)
             }
         }
