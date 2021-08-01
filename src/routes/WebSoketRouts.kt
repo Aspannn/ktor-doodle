@@ -69,7 +69,7 @@ fun Route.gameWebSocketRoute() {
                 is DrawData -> {
                     val room = server.rooms[payload.roomName] ?: return@standardWebSocket
                     //ffff
-                    if (room.phase != Room.Phase.GAME_RUNNING) {
+                    if (room.phase == Room.Phase.GAME_RUNNING) {
                         room.broadcastToAllExcept(message, clientId)
                         room.addSerializedDrawInfo(message)
                     }
